@@ -1,5 +1,5 @@
 import { api } from "./api";
-
+import jwtDecode from "jwt-decode";
 
 const USER_KEY= "@user";
 
@@ -26,7 +26,13 @@ export const isSignedIn = () => {
     const user = JSON.parse(localStorage.getItem(USER_KEY));
 
     if(user && user.token){
-        //verificar se o token é válido
+        const jwtDecoded = jwtDecode(user.token);
+
+        const nowTime = Date.now() / 1000 | 0;
+
+        if(jwtDecoded.exp < nowTime) {
+            return signOut();
+        }
 
         api.defaults.headers.common["Authorization"] = `Bearer ${user.token}`;
         return true;
