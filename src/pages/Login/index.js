@@ -4,6 +4,8 @@ import { api } from "../../services/api";
 import { Link, useHistory } from "react-router-dom";
 import { useState } from "react";
 import { signIn } from "../../services/security";
+import Loading from "../../components/Loading";
+import Alert from "../../components/Alert";
 
 function Login() {
   const history = useHistory();
@@ -13,8 +15,14 @@ function Login() {
       password: "",
   });
 
+  const [loading, setLoading] = useState(false);
+
+  const [message, setMessage] = useState(undefined);
+
   const handleSubmit = async (e) => {
     e.preventDefault();
+
+    setLoading(true);
 
     try {
 
@@ -22,12 +30,14 @@ function Login() {
 
      signIn(response.data);
 
+     setLoading(false);
+
      history.push("/home");
       
     } catch (error) {
       console.error(error);
-      alert(error.response.data.error);
-      
+      setMessage({ title: "Ops...", description: error.response.data.error});
+      setLoading(false);
     }
 
   };
@@ -36,7 +46,12 @@ function Login() {
     setLogin({...login, [e.target.id]: e.target.value });
   }
 
+
   return (
+    <>
+    <Alert message={message} type="error" handleClose={setMessage}/>
+    {loading && <Loading/>}
+    
     <Container>
       <FormLogin onSubmit={handleSubmit}>
         <Header>
@@ -64,6 +79,7 @@ function Login() {
         </Body>
       </FormLogin>
     </Container>
+    </>
   );
 }
 

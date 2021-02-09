@@ -3,6 +3,8 @@ import Input from "../../components/Input";
 import { Link, useHistory } from "react-router-dom";
 import { useState } from "react";
 import { api } from "../../services/api";
+import { signIn } from "../../services/security";
+import Loading from "../../components/Loading";
 
 function Register() {
 
@@ -15,6 +17,8 @@ function Register() {
     password:"",
     validPassword:"",
   });
+
+  const [loading, setLoading] = useState(false);
 
   const handleInput = (e) => {
     setStudent({...student, [e.target.id]: e.target.value });
@@ -35,6 +39,8 @@ function Register() {
 
     if (!validPassword()) return alert("As senhas precisam ser iguais!");
 
+    setLoading(true);
+
     try {
 
       const {ra, name, email, password} = student;
@@ -46,17 +52,22 @@ function Register() {
         password
       });
 
-      console.log(response);
+      signIn(response.data);
+      
+      setLoading(false);
 
       history.push("/home");
-      
     } catch (error) {
       console.error(error);
       alert(error.response.data.error);
+      setLoading(false);
     }
   };
 
   return (
+    <>
+    {loading && <Loading/>}
+    
     <Container>
       <FormLogin onSubmit={handleSubmit}>
         <Header>
@@ -101,11 +112,12 @@ function Register() {
             value={student.validPassword}
             handler={handleInput}
           />
-          <Button disabled={buttonDisabled}>Entrar</Button>
+          <Button disabled={buttonDisabled} onClick={() => setLoading(true)}>Entrar</Button>
           <Link to="/">Ou, se já tem cadastro, clique para voltar</Link>
         </Body>
       </FormLogin>
     </Container>
+    </>
   );
 }
 

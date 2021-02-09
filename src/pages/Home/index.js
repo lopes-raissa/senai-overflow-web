@@ -23,6 +23,8 @@ import Modal from "../../components/Modal";
 import Select from "../../components/Select";
 import { FormNewQuestion } from "../../components/Modal/styles";
 import Tag from "../../components/Tag";
+import Loading from "../../components/Loading";
+import { tr } from "date-fns/locale";
 
 function Profile() {
 
@@ -69,7 +71,7 @@ function Answer({ answer}) {
   );
 }
 
-function Question({ question }) {
+function Question({ question, setLoading }) {
   const [showAnswers, setShowAnswers] = useState(false);
 
   const [newAnswer, setNewAnswer] = useState("");
@@ -86,7 +88,9 @@ function Question({ question }) {
     e.preventDefault();
 
     if (newAnswer.lenght < 10)
-    return alert("A resposta deve ter no mínimo 10 cracteres");
+    return alert("A resposta deve ter no mínimo 10 caracteres");
+
+    setLoading(true);
 
     try {
       const response = await api.post(`/questions/${question.id}/answers`, {
@@ -108,9 +112,11 @@ function Question({ question }) {
       setAnswers([...answers, answerAdded]);
 
       setNewAnswer("");
-
+    
+      setLoading(false);
     } catch (error) {
       alert(error);
+      setLoading(false);
     }
   };
 
@@ -166,7 +172,7 @@ function Question({ question }) {
   );
 }
 
-function NewQuestion({handleReload}) {
+function NewQuestion({handleReload, setLoading}) {
 
   const [newQuestion, setNewQuestion] = useState({
     title:"",
@@ -256,16 +262,21 @@ const handleAddNewQuestion  = async (e) => {
  if(image) data.append("image", image);
  if(newQuestion.gist)data.append("gist", newQuestion.gist);
 
+ setLoading(true);
+
  try {
    await api.post("/questions", data, {
      headers: {
        "Content-type": "multipart/form-data",
      },
    });
+
+   handleReload();
  } catch (error) {
    alert(error);
+   setLoading(false);
  }
- handleReload();
+ 
 };
 
   return (
@@ -323,13 +334,18 @@ function Home() {
 
   const [reload, setReload] = useState(null);
 
+  const [loading, setLoading] = useState(false);
+
   const [showNewQuestion, setShowNewQuestion] = useState(false);
 
   useEffect(() => {
     const loadQuestions = async () => {
+      setLoading(true);
       const response = await api.get("/feed");
 
       setQuestions(response.data);
+
+      setLoading(false);
     };
 
     loadQuestions();
@@ -348,9 +364,15 @@ function Home() {
 
   return (
     <>
+      {loading && <Loading/>}
       {showNewQuestion && (
-        <Modal title= "Faça uma pergunta" handleClose={() => setShowNewQuestion(false)}>
-        <NewQuestion handleReload={handleReload}/>
+        <Modal title= "Faça uma pergunta" 
+        handleClose={() => setShowNewQuestion(false)}
+        >
+        <NewQuestion 
+        handleReload={handleReload} 
+        setLoading={setLoading}
+        />
       </Modal>
       )}
       <Container>
@@ -364,7 +386,7 @@ function Home() {
         </ProfileContainer>
         <FeedContainer>
           {questions.map((q) => (
-            <Question question={q} />
+            <Question question={q} setLoading={setLoading} />
           ))}
         </FeedContainer>
         <ActionsContainer>
