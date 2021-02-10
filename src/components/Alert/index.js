@@ -16,7 +16,7 @@ useEffect(() => {
     } else {
         containerRef.current.style.width = "0px";
     }
-}, [message]);
+}, [message, handleClose]);
 
     return (
     <Container type={type} ref={containerRef}>

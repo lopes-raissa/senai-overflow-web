@@ -18,23 +18,52 @@ import Input from "../../components/Input";
 import imgProfile from "../../assets/foto_perfil.png";
 import logo from "../../assets/logo.png";
 import { api } from "../../services/api";
-import { signOut, getUser } from "../../services/security";
+import { signOut, getUser, setUser } from "../../services/security";
 import Modal from "../../components/Modal";
 import Select from "../../components/Select";
 import { FormNewQuestion } from "../../components/Modal/styles";
 import Tag from "../../components/Tag";
 import Loading from "../../components/Loading";
-import { tr } from "date-fns/locale";
+import { validSquaredImage } from "../../utils";
 
-function Profile() {
+function Profile({ setLoading, handleReload, setMessage }) {
+  const [student, setStudent] = useState({});
 
-  const student = getUser();
+  useEffect(() => {
+    setStudent(getUser());
+  }, []);
+
+  const handleImage = async (e) => {
+    if (!e.target.files[0]) return;
+
+    try {
+      await validSquaredImage(e.target.files[0]);
+      const data = new FormData();
+
+      data.append("image", e.target.files[0]);
+
+      setLoading(true);
+
+      const response = await api.post(`/students/${student.id}/images`, data);
+
+      setTimeout(() => {
+        setStudent({ ...student, image: response.data.image });
+        handleReload();
+      }, 1000);
+
+      setUser({ ...student, image: response.data.image });
+    } catch (error) {
+      alert(error);
+      setLoading(false);
+    }
+  };
 
   return (
     <>
       <section>
-        <img src={imgProfile} alt="Imagem de Perfil" />
-        <a href="#">Editar foto</a>
+        <img src={student.image || imgProfile} alt="Imagem de Perfil" />
+        <label htmlFor="editImageProfile">Editar foto</label>
+        <input id="editImageProfile" type="file" onChange={handleImage} />
       </section>
       <section>
         <strong>NOME:</strong>
@@ -52,22 +81,20 @@ function Profile() {
   );
 }
 
-function Answer({ answer}) {
-
+function Answer({ answer }) {
   const student = getUser();
 
   return (
     <section>
-            <header>
-              <img src={imgProfile}/>
-              <strong>
-                por {student.id === answer.Student.id ? "Você" : answer.Student.name}
-              </strong>
-              <p> {format(new Date (answer.created_at), "dd/MM/yyyy 'às' hh:mm")}
-              </p>
-            </header>
-            <p>{answer.description}</p>
-          </section>
+      <header>
+        <img src={answer.Student.image || imgProfile} />
+        <strong>
+          por {student.id === answer.Student.id ? "Você" : answer.Student.name}
+        </strong>
+        <p> {format(new Date(answer.created_at), "dd/MM/yyyy 'às' hh:mm")}</p>
+      </header>
+      <p>{answer.description}</p>
+    </section>
   );
 }
 
@@ -78,17 +105,17 @@ function Question({ question, setLoading }) {
 
   const [answers, setAnswers] = useState([]);
 
-  useEffect(()=> {
+  useEffect(() => {
     setAnswers(question.Answers);
   }, [question.Answers]);
 
-  const qtdAnswers = answers.lenght;
+  const qtdAnswers = answers.length;
 
   const handleAddAnswer = async (e) => {
     e.preventDefault();
 
     if (newAnswer.lenght < 10)
-    return alert("A resposta deve ter no mínimo 10 caracteres");
+      return alert("A resposta deve ter no mínimo 10 caracteres");
 
     setLoading(true);
 
@@ -99,20 +126,21 @@ function Question({ question, setLoading }) {
 
       const aluno = getUser();
 
-      const answerAdded= {
+      const answerAdded = {
         id: response.data.id,
         description: newAnswer,
-        created_at: response.data.created_at,
+        created_at: response.data.createdAt,
         Student: {
           id: aluno.studentId,
           name: aluno.name,
+          image: aluno.image,
         },
       };
 
       setAnswers([...answers, answerAdded]);
 
       setNewAnswer("");
-    
+
       setLoading(false);
     } catch (error) {
       alert(error);
@@ -122,17 +150,18 @@ function Question({ question, setLoading }) {
 
   const student = getUser();
 
-
   return (
     <QuestionCard>
       <header>
-        <img src={imgProfile} />
+        <img src={question.Student.image || imgProfile} />
         <strong>
-          por{ " "}
-          {student.studentId === question.Student.id ? "Você" : question.Student.name}
-          </strong>
+          por{" "}
+          {student.studentId === question.Student.id
+            ? "Você"
+            : question.Student.name}
+        </strong>
         <p>
-          em {format(new Date (question.created_at), "dd/MM/yyyy 'às' HH:mm")}
+          em {format(new Date(question.created_at), "dd/MM/yyyy 'às' HH:mm")}
         </p>
       </header>
       <section>
@@ -141,29 +170,30 @@ function Question({ question, setLoading }) {
         <img src={question.image} />
       </section>
       <footer>
-        <h1 onClick={() => setShowAnswers(!showAnswers)}> 
+        <h1 onClick={() => setShowAnswers(!showAnswers)}>
           {qtdAnswers === 0 ? (
             "Seja o primeiro a responder"
           ) : (
             <>
-              {qtdAnswers} 
-              {qtdAnswers > 1 ? "Respostas"  : "Resposta"}
+              {qtdAnswers}
+              {qtdAnswers > 1 ? " Respostas " : " Resposta "}
             </>
           )}
         </h1>
         {showAnswers && (
           <>
-          {answers.map((answer) => (
-          <Answer answer={answer}/>
-
-          ))}
-        </>
+            {" "}
+            {answers.map((answer) => (
+              <Answer answer={answer} />
+            ))}
+          </>
         )}
         <form onSubmit={handleAddAnswer}>
-          <textarea placeholder="Responda essa dúvida!" 
-          onChange={e => setNewAnswer(e.target.value)} 
-          required
-          value= {newAnswer}
+          <textarea
+            placeholder="Responda essa dúvida!"
+            onChange={(e) => setNewAnswer(e.target.value)}
+            required
+            value={newAnswer}
           ></textarea>
           <button>Enviar</button>
         </form>
@@ -172,47 +202,43 @@ function Question({ question, setLoading }) {
   );
 }
 
-function NewQuestion({handleReload, setLoading}) {
-
+function NewQuestion({ handleReload, setLoading }) {
   const [newQuestion, setNewQuestion] = useState({
-    title:"",
-    description:"",
-    gist:"",
+    title: "",
+    description: "",
+    gist: "",
   });
 
   const [categories, setCategories] = useState([]);
 
   const [categoriesSel, setCategoriesSel] = useState([]);
 
-  
   const [image, setImage] = useState(null);
 
   const imageRef = useRef();
 
   const categoriesRef = useRef();
 
-
   useEffect(() => {
     const loadCategories = async () => {
       try {
         const response = await api.get("/categories");
-        
+
         setCategories(response.data);
-        
       } catch (error) {
         alert(error);
       }
     };
-    
+
     loadCategories();
-  }, [])
+  }, []);
 
   const handleCategories = (e) => {
     const idSel = e.target.value;
 
-    const categorySel = categories.find(c => c.id.toString() === idSel);
+    const categorySel = categories.find((c) => c.id.toString() === idSel);
 
-    if(categorySel && !categoriesSel.includes(categorySel))
+    if (categorySel && !categoriesSel.includes(categorySel))
       setCategoriesSel([...categoriesSel, categorySel]);
 
     e.target[e.target.selectedIndex].disabled = true;
@@ -220,111 +246,109 @@ function NewQuestion({handleReload, setLoading}) {
   };
 
   const handleImage = (e) => {
-    if(e.target.files[0]) {
-    imageRef.current.src = URL.createObjectURL(e.target.files[0]);
-    imageRef.current.style.display = "flex";
-  } else {
-    imageRef.current.src = "";
-    imageRef.current.style.display = "none";
-  }
+    if (e.target.files[0]) {
+      imageRef.current.src = URL.createObjectURL(e.target.files[0]);
+      imageRef.current.style.display = "flex";
+    } else {
+      imageRef.current.src = "";
+      imageRef.current.style.display = "none";
+    }
 
-  setImage(e.target.files[0]);
-  
-};
+    setImage(e.target.files[0]);
+  };
 
-const handleUnselCategory = (idUnsel) => {
+  const handleUnselCategory = (idUnsel) => {
     setCategoriesSel(categoriesSel.filter((c) => c.id !== idUnsel));
 
-    const {options} = categoriesRef.current;
-    
+    const { options } = categoriesRef.current;
+
     for (var i = 0; i < options.length; i++) {
-      if(options[i].value === idUnsel.toString()) options[i].disabled = false;
+      if (options[i].value === idUnsel.toString()) options[i].disabled = false;
     }
-};
+  };
 
-const handleInput = (e) => {
-  setNewQuestion({...newQuestion, [e.target.id]: e.target.value });
-};
+  const handleInput = (e) => {
+    setNewQuestion({ ...newQuestion, [e.target.id]: e.target.value });
+  };
 
-const handleAddNewQuestion  = async (e) => {
-  e.preventDefault();
+  const handleAddNewQuestion = async (e) => {
+    e.preventDefault();
 
-  const data = new FormData();
+    const data = new FormData();
 
-  data.append("title", newQuestion.title);
-  data.append("description", newQuestion.description);
-  
+    data.append("title", newQuestion.title);
+    data.append("description", newQuestion.description);
 
- const categories =  categoriesSel.reduce((s, c) => (s += c.id + ","), "");
+    const categories = categoriesSel.reduce((s, c) => (s += c.id + ","), "");
 
- data.append("categories", categories.substr(0, categories.length - 1));
+    data.append("categories", categories.substr(0, categories.length - 1));
 
- if(image) data.append("image", image);
- if(newQuestion.gist)data.append("gist", newQuestion.gist);
+    if (image) data.append("image", image);
+    if (newQuestion.gist) data.append("gist", newQuestion.gist);
 
- setLoading(true);
+    setLoading(true);
 
- try {
-   await api.post("/questions", data, {
-     headers: {
-       "Content-type": "multipart/form-data",
-     },
-   });
+    try {
+      await api.post("/questions", data, {
+        headers: {
+          "Content-type": "multipart/form-data",
+        },
+      });
 
-   handleReload();
- } catch (error) {
-   alert(error);
-   setLoading(false);
- }
- 
-};
+      handleReload();
+    } catch (error) {
+      alert(error);
+      setLoading(false);
+    }
+  };
 
   return (
     <FormNewQuestion onSubmit={handleAddNewQuestion}>
-          <Input
-           id="title"
-            label="Título" 
-            value={newQuestion.title}
-            handler={handleInput}
-            />
-          <Input
-           id="description"
-            label="Descrição"
-            value={newQuestion.description}
-            handler={handleInput}
-            />
-          <Input 
-          id="gist" 
-          label="Gist"
-          value={newQuestion.gist}
-            handler={handleInput}
-          />
-          <Select
-           id="categories" 
-           label="Categorias" 
-           handler={handleCategories}
-           ref={categoriesRef}
-          >
-            <option value="">Selecione</option>
-            {categories.map((c) => (
-              <option key={c.id}value={c.id}>
-                {c.description}</option>
-            ))}
-          </Select>
-          <div>
-            {categoriesSel.map((c) => (
-              <Tag 
-              key={c.id}
-              info={c.description} 
-              handleClose={() => handleUnselCategory(c.id)}
-              ></Tag>
-            ))}
-          </div>
-          <input type="file" onChange={handleImage}/>
-          <img alt="Pré-visualização" ref={imageRef} />
-          <button>Enviar</button>
-        </FormNewQuestion>
-  )
+      <Input
+        id="title"
+        label="Título"
+        value={newQuestion.title}
+        handler={handleInput}
+      />
+      <Input
+        id="description"
+        label="Descrição"
+        value={newQuestion.description}
+        handler={handleInput}
+      />
+      <Input
+        id="gist"
+        label="Gist"
+        value={newQuestion.gist}
+        handler={handleInput}
+      />
+      <Select
+        id="categories"
+        label="Categorias"
+        handler={handleCategories}
+        ref={categoriesRef}
+      >
+        <option value="">Selecione</option>
+        {categories.map((c) => (
+          <option key={c.id} value={c.id}>
+            {c.description}
+          </option>
+        ))}
+      </Select>
+      <div>
+        {categoriesSel.map((c) => (
+          <Tag
+            key={c.id}
+            info={c.description}
+            handleClose={() => handleUnselCategory(c.id)}
+          ></Tag>
+        ))}
+      </div>
+      <input type="file" onChange={handleImage} />
+      <img alt="Pré-visualização" ref={imageRef} />
+      <button>Enviar</button>
+    </FormNewQuestion>
+  );
 }
 
 function Home() {
@@ -360,42 +384,40 @@ function Home() {
   const handleReload = () => {
     setShowNewQuestion(false);
     setReload(Math.random());
-  }
+  };
 
   return (
     <>
-      {loading && <Loading/>}
+      {loading && <Loading />}
       {showNewQuestion && (
-        <Modal title= "Faça uma pergunta" 
-        handleClose={() => setShowNewQuestion(false)}
+        <Modal
+          title="Faça uma pergunta"
+          handleClose={() => setShowNewQuestion(false)}
         >
-        <NewQuestion 
-        handleReload={handleReload} 
-        setLoading={setLoading}
-        />
-      </Modal>
+          <NewQuestion handleReload={handleReload} setLoading={setLoading} />
+        </Modal>
       )}
       <Container>
-      <Header>
-        <Logo src={logo} onClick={handleReload}/>
-        <IconSignOut OnClick={handleSignOut} />
-      </Header>
-      <Content>
-        <ProfileContainer>
-          <Profile />
-        </ProfileContainer>
-        <FeedContainer>
-          {questions.map((q) => (
-            <Question question={q} setLoading={setLoading} />
-          ))}
-        </FeedContainer>
-        <ActionsContainer>
-          <button onClick={() => setShowNewQuestion(true)}>
-            Fazer uma pergunta
-          </button>
-        </ActionsContainer>
-      </Content>
-     </Container>
+        <Header>
+          <Logo src={logo} onClick={handleReload} />
+          <IconSignOut OnClick={handleSignOut} />
+        </Header>
+        <Content>
+          <ProfileContainer>
+            <Profile handleReload={handleReload} setLoading={setLoading} />
+          </ProfileContainer>
+          <FeedContainer>
+            {questions.map((q) => (
+              <Question question={q} setLoading={setLoading} />
+            ))}
+          </FeedContainer>
+          <ActionsContainer>
+            <button onClick={() => setShowNewQuestion(true)}>
+              Fazer uma pergunta
+            </button>
+          </ActionsContainer>
+        </Content>
+      </Container>
     </>
   );
 }
