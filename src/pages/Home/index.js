@@ -12,6 +12,8 @@ import {
   ActionsContainer,
   QuestionCard,
   IconSignOut,
+  GistIcon,
+  ContainerGist,
 } from "./styles";
 
 import Input from "../../components/Input";
@@ -25,6 +27,9 @@ import { FormNewQuestion } from "../../components/Modal/styles";
 import Tag from "../../components/Tag";
 import Loading from "../../components/Loading";
 import { validSquaredImage } from "../../utils";
+import ReactEmbedGist from "react-embed-gist";
+import SpinnerLoading from "../../components/SpinnerLoading";
+import InputSearch from "../../components/InputSearch";
 
 function Profile({ setLoading, handleReload, setMessage }) {
   const [student, setStudent] = useState({});
@@ -98,7 +103,7 @@ function Answer({ answer }) {
   );
 }
 
-function Question({ question, setLoading }) {
+function Question({ question, setLoading, setCurrentGist }) {
   const [showAnswers, setShowAnswers] = useState(false);
 
   const [newAnswer, setNewAnswer] = useState("");
@@ -163,6 +168,9 @@ function Question({ question, setLoading }) {
         <p>
           em {format(new Date(question.created_at), "dd/MM/yyyy 'às' HH:mm")}
         </p>
+        {question.gist && (
+          <GistIcon onClick={() => setCurrentGist(question.gist)} />
+        )}
       </header>
       <section>
         <strong>{question.title}</strong>
@@ -351,6 +359,22 @@ function NewQuestion({ handleReload, setLoading }) {
   );
 }
 
+function Gist({ gist, handleClose }) {
+  if (gist) {
+    const formatedGist = gist.split(".com/").pop();
+    return (
+      <Modal
+        title="Exemplo de código"
+        handleClose={() => handleClose(undefined)}
+      >
+        <ContainerGist>
+          <ReactEmbedGist gist={formatedGist} />
+        </ContainerGist>
+      </Modal>
+    );
+  } else return null;
+}
+
 function Home() {
   const history = useHistory();
 
@@ -360,19 +384,44 @@ function Home() {
 
   const [loading, setLoading] = useState(false);
 
+  const [isLoadingFeed, setIsLoadingFeed] = useState(false);
+
   const [showNewQuestion, setShowNewQuestion] = useState(false);
 
+  const [currentGist, setCurrentGist] = useState(undefined);
+
+  const [page, setPage] = useState(1);
+
+  const [totalQuestions, setTotalQuestions] = useState(0);
+
+  const [search, setSearch] = useState("");
+ 
+  const feedRef = useRef();
+
+  const loadQuestions = async (reload) => {
+    //se já tiver buscando, não busca de novo
+    if (isLoadingFeed) return;
+
+    //se tiver chego no fim, não busca de novo
+    if (totalQuestions > 0 && totalQuestions == questions.length) return;
+
+    setIsLoadingFeed(true);
+
+    const response = await api.get("/feed", {
+      params: { page },
+    });
+
+    setPage(page + 1);
+
+    setQuestions([...questions, ...response.data]);
+
+    setTotalQuestions(response.headers["x-total-count"]);
+
+    setIsLoadingFeed(false);
+  };
+
   useEffect(() => {
-    const loadQuestions = async () => {
-      setLoading(true);
-      const response = await api.get("/feed");
-
-      setQuestions(response.data);
-
-      setLoading(false);
-    };
-
-    loadQuestions();
+    loadQuestions(true);
   }, [reload]);
 
   const handleSignOut = () => {
@@ -383,12 +432,46 @@ function Home() {
 
   const handleReload = () => {
     setShowNewQuestion(false);
+    setLoading(false)
+    setPage(1);
+    setQuestions([]);
+    setSearch("");
     setReload(Math.random());
+  };
+
+  const feedScrollObserver = async (e) => {
+    const {scrollTop, clientHeight, scrollHeight} = e.target;
+
+   if (scrollTop + clientHeight > scrollHeight - 100 && search.length < 4) loadQuestions();
+  };
+
+  const handleSearch = async (e) => {
+    setSearch(e.target.value);
+
+
+    if(e.target.value.length === 0 ) handleReload();
+
+    if (e.target.value.length < 4) return;
+
+    try {
+      const response = await api.get("/questions", {
+        params: { search: e.target.value },
+      });
+
+      setQuestions(response.data);
+    } catch (error) {
+      alert(error);
+      console.log(error);
+      
+    }
   };
 
   return (
     <>
       {loading && <Loading />}
+
+      <Gist gist={currentGist} handleClose={setCurrentGist} />
+
       {showNewQuestion && (
         <Modal
           title="Faça uma pergunta"
@@ -400,16 +483,26 @@ function Home() {
       <Container>
         <Header>
           <Logo src={logo} onClick={handleReload} />
+          <InputSearch handler={handleSearch} value={search}/>
           <IconSignOut OnClick={handleSignOut} />
         </Header>
         <Content>
           <ProfileContainer>
             <Profile handleReload={handleReload} setLoading={setLoading} />
           </ProfileContainer>
-          <FeedContainer>
+          <FeedContainer ref={feedRef} onScroll={feedScrollObserver}>
+            {questions.length === 0 && 
+            search.length > 3 &&
+            "Nenhuma questão encontrada."}
             {questions.map((q) => (
-              <Question question={q} setLoading={setLoading} />
+              <Question
+                question={q}
+                setLoading={setLoading}
+                setCurrentGist={setCurrentGist}
+              />
             ))}
+            {isLoadingFeed && <SpinnerLoading />}
+            {totalQuestions == questions.length && "Isso é tudo!"}
           </FeedContainer>
           <ActionsContainer>
             <button onClick={() => setShowNewQuestion(true)}>

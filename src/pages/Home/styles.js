@@ -1,4 +1,4 @@
-import { FaSignOutAlt} from "react-icons/fa";
+import { FaSignOutAlt, FaGithub, FaGithubAlt} from "react-icons/fa";
 import styled from "styled-components";
 
 export const Container = styled.div`
@@ -236,5 +236,34 @@ export const FormNewQuestion = styled.form`
   align-self: center;
   max-width: 40%;
   display: none;
+}
+`;
+
+export const GistIcon = styled(FaGithubAlt)`
+  font-size: 30px;
+  margin-right: 10px;
+
+  cursor: pointer;
+
+  transition: 0.2s;
+
+  :hover {
+    color: var(--primary);
+  }
+
+  :active {
+    transform: scale(0.9);
+  }
+`;
+
+export const ContainerGist = styled.section`
+margin-top: 10px;
+
+h2 {
+  font-size: 16px;
+  font-weight: normal;
+
+  text-align: center;
+  margin-bottom: 5px;
 }
 `;

@@ -1,4 +1,4 @@
-import { ForwardedRef, forwardRef } from "react";
+import { forwardRef } from "react";
 import { Container } from "./styles";
 
 const Select = forwardRef(
